@@ -8,7 +8,8 @@ cursor.execute('''
 CREATE TABLE IF NOT EXISTS Customers (
     id INTEGER PRIMARY KEY,
     full_name TEXT,
-    phone TEXT
+    phone TEXT,
+    telegram_id TEXT         
 );
 ''')
 

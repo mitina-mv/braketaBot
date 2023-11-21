@@ -1,82 +1,81 @@
 import logging
-# import telebot
-# from telebot import types
+import telebot
+from telebot import types
 import os
-
-# token = os.environ.get("TOKEN")
-
-# bot=telebot.TeleBot(token)
-# @bot.message_handler(commands=['start'])
-# def start_message(message):
-#   bot.send_message(message.chat.id,"Привет ✌️ ")
-
-
-# @bot.message_handler(commands=['button'])
-# def button_message(message):
-#   markup=types.ReplyKeyboardMarkup(resize_keyboard=True)
-#   item1=types.KeyboardButton("Кнопка")
-#   markup.add(item1)
-#   markup.add(item1)
-#   bot.send_message(message.chat.id,'Выберите что вам надо',reply_markup=markup)
-
-# bot.polling(none_stop=True)
+import sqlite3
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
-# import telegram
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, filters, MessageHandler
 
-# Замените 'YOUR_BOT_TOKEN' на токен вашего бота
-TOKEN = os.environ.get("TOKEN")
+token = os.environ.get("TOKEN")
+db = sqlite3.connect('braketaDB.db')
+cursor = db.cursor()
 
-# Обработка команды /start с использованием клавиатуры
-# def start(update: Update, context: CallbackContext) -> None:
-#     keyboard = [['Button 1', 'Button 2'], ['Button 3', 'Button 4']]
-#     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
-#     update.message.reply_text('Выберите опцию:', reply_markup=reply_markup)
+bot=telebot.TeleBot(token)
 
-# def button_click(update: Update, context: CallbackContext) -> None:
-#     text = update.message.text
-#     update.message.reply_text(f'Вы нажали на кнопку: {text}')
+@bot.message_handler(commands=['start'])
+def start_message(message):
+    bot.send_message(message.chat.id,"Привет ✌️  \n Бот начал работать!")
+    telegram_id = message.from_user.id
+    cursor.execute('SELECT * FROM Customers WHERE telegram_id = ?', (telegram_id,))
+    user_data = cursor.fetchone()
 
-# def main() -> None:
-#     dp = ApplicationBuilder().token(TOKEN).build()
+bot.message_handler(func=lambda message: True)
+def handle_all_messages(message):
+    # Отправка клавиатуры с запросом контакта
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    button = types.KeyboardButton("Поделиться контактом", request_contact=True)
+    markup.add(button)
 
-#     # Обработка команды /start
-#     dp.add_handler(CommandHandler("start", start))
-    
-#     # Обработка нажатий на кнопки
-#     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, button_click))
+    bot.send_message(message.chat.id, "Поделитесь своим контактом, нажав кнопку ниже.", reply_markup=markup)
 
-#     # Запуск бота
-#     dp.run_polling()
+@bot.message_handler(content_types=['contact'])
+def handle_contact(message):
+    # Обработка полученного контакта
+    contact = message.contact
+    phone_number = contact.phone_number
+    user_id = message.from_user.id
 
-# if __name__ == '__main__':
-#     main()
+    bot.send_message(message.chat.id, f"Спасибо за предоставленный контакт: {phone_number}")
 
-# async def start(update: Update, context: CallbackContext) -> None:
-#     keyboard = [['Button 1', 'Button 2'], ['Button 3', 'Button 4']]
-#     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
-#     update.message.reply_text('Выберите опцию:', reply_markup=reply_markup)
+@bot.message_handler(commands=['button'])
+def button_message(message):
+  markup=types.ReplyKeyboardMarkup(resize_keyboard=True)
+  item1=types.KeyboardButton("Кнопка")
+  markup.add(item1, item1)
+  markup.add(item1)
+  bot.send_message(message.chat.id,'Выберите что вам надо',reply_markup=markup)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [['Button 1', 'Button 2'], ['Button 3', 'Button 4']]
-    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="Выберите опцию:", reply_markup=reply_markup)
+bot.polling(none_stop=True)
 
-async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text_button = update.message.text
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=f'Вы нажали на кнопку: {text_button}')
+____
+import telebot
+from telebot import types
+import os
 
-if __name__ == '__main__':
-    application = ApplicationBuilder().token(TOKEN).build()
-    
-    start_handler = CommandHandler('start', start)
-    application.add_handler(start_handler)
+token = os.environ.get("TOKEN")
 
-    application.add_handler(MessageHandler(filters.text & ~filters.command, button_click))
-    
-    application.run_polling()
+bot = telebot.TeleBot(token)
+
+@bot.message_handler(func=lambda message: True)
+def handle_all_messages(message):
+    # Ваш код, который будет выполняться при каждом получении сообщения
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    button = types.KeyboardButton("Поделиться контактом", request_contact=True)
+    markup.add(button)
+
+    bot.send_message(message.chat.id, "Поделитесь своим контактом, нажав кнопку ниже.", reply_markup=markup)
+
+@bot.message_handler(content_types=['contact'])
+def handle_contact(message):
+    # Обработка полученного контакта
+    contact = message.contact
+    phone_number = contact.phone_number
+    user_id = message.from_user.id
+
+    bot.send_message(message.chat.id, f"Спасибо за предоставленный контакт: {phone_number}")
+
+# Запуск бота
+bot.polling(none_stop=True)
