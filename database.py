@@ -65,5 +65,24 @@ CREATE TABLE IF NOT EXISTS OrderItems (
 );
 ''')
 
+cursor.execute('''
+-- Create table "Departments"
+CREATE TABLE IF NOT EXISTS Departments (
+    id INTEGER PRIMARY KEY,
+    name TEXT
+);
+''')
+
+cursor.execute('''
+-- Create table "Workers"
+CREATE TABLE IF NOT EXISTS Workers (
+    id INTEGER PRIMARY KEY,
+    full_name TEXT,
+    telegram_id TEXT,
+    department_id INTEGER,
+    FOREIGN KEY (department_id) REFERENCES Departments(id)
+);
+''')
+
 connection.commit()
 connection.close()
