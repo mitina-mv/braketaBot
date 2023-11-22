@@ -14,17 +14,24 @@ user = {}
 
 status_bot = ''
 
+def get_user_from_db(telegram_id):
+    global user
+
+    with sqlite3.connect(db_path) as db:
+        cursor = db.cursor()
+        cursor.execute('SELECT * FROM Customers WHERE telegram_id = ?', (telegram_id,))
+        user_data = cursor.fetchone()
+        user['telegram_id'] = telegram_id
+    
+    return user_data
+
 @bot.message_handler(commands=['start'])
 def start_message(message):
     global status_bot
     global user
 
     telegram_id = message.from_user.id
-    with sqlite3.connect(db_path) as db:
-        cursor = db.cursor()
-        cursor.execute('SELECT * FROM Customers WHERE telegram_id = ?', (telegram_id,))
-        user_data = cursor.fetchone()
-        user['telegram_id'] = telegram_id
+    user_data = get_user_from_db(telegram_id)
 
     if user_data:
         bot.send_message(message.chat.id, f"Привет, {user_data[1]} ✌️  \nДобро пожаловать в систему!")
@@ -73,15 +80,40 @@ def history_command(message):
         # Вывод результатов
         orders_str = ''
         count = 1
+        managers = {}
+        statuses = {}
         for row in results:
-            print(row)
-            orders_str += f"""{count}. **Заказ № {row[0]} \"{row[1]}\" **\n 
-            Статус: {row[2]}
-            Дата заказа: {row[3]}
-            Дата доставки: {row[4]} 
-            Менеджер: {row[5]}"""
+            # запрос менеджера если не узнали
+            if row[5] not in managers:
+                cursor = db.cursor()
+                cursor.execute('SELECT * FROM Managers WHERE id = ?', (row[5],))
+                tmp = cursor.fetchone()
+                if tmp:
+                    managers[row[5]] = tmp[1]
+                else:
+                    bot.send_message(message.chat.id, 'В ходе формирование сообещния произошла ошибка. Повторите запрос позже.')
+                    return
+                
+            # запрос статуса
+            if row[2] not in statuses:
+                cursor = db.cursor()
+                cursor.execute('SELECT * FROM Statuses WHERE id = ?', (row[2],))
+                tmp = cursor.fetchone()
+                if tmp:
+                    statuses[row[2]] = tmp[1]
+                else:
+                    bot.send_message(message.chat.id, 'В ходе формирование сообещния произошла ошибка. Повторите запрос позже.')
+                    return
+
+            orders_str += f"""{count}. *Заказ № {row[0]} \"{row[1]}\" *\n 
+Статус: {statuses[row[2]]}
+Дата заказа: {row[3]}
+Дата доставки: {row[4]} 
+Менеджер: {managers[row[5]]}"""
+
+            ++count
         
-        bot.send_message(message.chat.id, f"Все ваши заказы:\n\n{orders_str}")
+        bot.send_message(message.chat.id, f"Все ваши заказы:\n\n{orders_str}", parse_mode="Markdown")
     
 
 # Обработчик для команды /orders
@@ -97,7 +129,16 @@ def help_command(message):
 # Обработчик коллбека
 @bot.callback_query_handler(func=lambda call:True)
 def callback_query(call):
+    global user
+
     req = call.data.split('_')
+
+    # TODO почему-то не работает
+    if user == {}:
+        user_data = get_user_from_db(call.message.from_user.id)
+        print(user_data)
+        if user_data:
+            user = user_data
     
     if req[0] == 'history':
         history_command(call.message)
@@ -145,6 +186,10 @@ def handle_full_name(message):
     elif status_bot == 'start':
         bot.send_message(message.chat.id, f"Что-то сделаем")
     else:
+        telegram_id = message.from_user.id
+        user_data = get_user_from_db(telegram_id)
+        if user_data:
+            user = user_data
         bot.send_message(message.chat.id, f"мы вас не поняли")
 
 
