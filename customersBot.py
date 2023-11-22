@@ -17,6 +17,7 @@ status_bot = ''
 @bot.message_handler(commands=['start'])
 def start_message(message):
     global status_bot
+    global user
 
     telegram_id = message.from_user.id
     with sqlite3.connect(db_path) as db:
@@ -26,7 +27,10 @@ def start_message(message):
         user['telegram_id'] = telegram_id
 
     if user_data:
-        bot.send_message(message.chat.id, f"Привет {user_data[1]} ✌️  \nДобро пожаловать в систему!")
+        bot.send_message(message.chat.id, f"Привет, {user_data[1]} ✌️  \nДобро пожаловать в систему!")
+        status_bot = 'start'
+        user = user_data
+        send_menu(message.chat.id)
     else:
         status_bot = 'register'
         contact_button(message.chat.id)
@@ -37,7 +41,75 @@ def contact_button(chat_id):
     markup.add(button)
     bot.send_message(chat_id, "Поделитесь своим контактом, нажав кнопку ниже.", reply_markup=markup)
 
-@bot.message_handler(content_types=['text'])
+def send_menu(chat_id):
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    history_button = types.InlineKeyboardButton("📚 История заказов", callback_data='history')
+    orders_button = types.InlineKeyboardButton("📦 Актуальные заказы", callback_data='orders')
+    help_button = types.InlineKeyboardButton("❓ Помощь", callback_data='help')
+
+    markup.add(history_button, orders_button, help_button)
+
+    bot.send_message(chat_id, "Выберите один из вариантов:", reply_markup=markup)
+
+@bot.message_handler(content_types=['contact'])
+def handle_contact(message):
+    contact = message.contact
+    phone_number = contact.phone_number
+    user['phone_number'] = phone_number
+    bot.send_message(message.chat.id, "Введите ваше полное имя: ")
+    
+
+# Обработчик для команды /history
+@bot.message_handler(commands=['history'])
+def history_command(message):
+    global user
+
+    with sqlite3.connect(db_path) as db:
+        cursor = db.cursor()
+        cursor.execute('SELECT * FROM Orders WHERE customer_id = ?', (user[0],))
+        # Получение всех результатов запроса
+        results = cursor.fetchall()
+
+        # Вывод результатов
+        orders_str = ''
+        count = 1
+        for row in results:
+            print(row)
+            orders_str += f"""{count}. **Заказ № {row[0]} \"{row[1]}\" **\n 
+            Статус: {row[2]}
+            Дата заказа: {row[3]}
+            Дата доставки: {row[4]} 
+            Менеджер: {row[5]}"""
+        
+        bot.send_message(message.chat.id, f"Все ваши заказы:\n\n{orders_str}")
+    
+
+# Обработчик для команды /orders
+@bot.message_handler(commands=['orders'])
+def orders_command(message):
+    bot.send_message(message.chat.id, "Отправляю информацию о ваших заказах...")
+
+# Обработчик для команды /help
+@bot.message_handler(commands=['help'])
+def help_command(message):
+    bot.send_message(message.chat.id, "Помощь: Как я могу вам помочь?")
+
+# Обработчик коллбека
+@bot.callback_query_handler(func=lambda call:True)
+def callback_query(call):
+    req = call.data.split('_')
+    
+    if req[0] == 'history':
+        history_command(call.message)
+    
+    elif req[0] == 'orders':
+        orders_command(call.message)
+    
+    elif req[0] == 'help':
+        help_command(call.message)
+
+# главный обработчик текстовых сообщений
+@bot.message_handler(func=lambda message: True)
 def handle_full_name(message):
     global status_bot
     global user
@@ -68,12 +140,12 @@ def handle_full_name(message):
         bot.send_message(message.chat.id, f"Спасибо, {full_name}! Мы создали вам демо-заказ.")
         status_bot = 'start'
 
-@bot.message_handler(content_types=['contact'])
-def handle_contact(message):
-    contact = message.contact
-    phone_number = contact.phone_number
-    user['phone_number'] = phone_number
-    bot.send_message(message.chat.id, "Введите ваше полное имя: ")
+        send_menu(message.chat.id)
+
+    elif status_bot == 'start':
+        bot.send_message(message.chat.id, f"Что-то сделаем")
+    else:
+        bot.send_message(message.chat.id, f"мы вас не поняли")
 
 
 bot.polling(none_stop=True)
