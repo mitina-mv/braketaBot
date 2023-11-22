@@ -6,6 +6,9 @@ name = "pypi"
 [packages]
 pytelegrambotapi = "*"
 python-telegram-bot = "*"
+qrcode = "*"
+numpy = "*"
+opencv-python = "*"
 
 [dev-packages]
 
