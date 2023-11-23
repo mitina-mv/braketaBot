@@ -189,6 +189,7 @@ def callback_query(call):
                 Statuses.name AS status_name,
                 Managers.full_name AS manager_name,
                 OrderItems.quantity,
+                Items.units,
                 Items.name AS item_name
             FROM Orders
             JOIN Statuses ON Orders.status_id = Statuses.id
@@ -215,7 +216,8 @@ def callback_query(call):
         }
 
         for row in result:
-            order_items_details = {'item_name': row[7], 'quantity': row[6]}
+            print(row)
+            order_items_details = {'item_name': row[8], 'quantity': row[6], 'units': row[7]}
             order_details['order_items'].append(order_items_details)
 
         output = (
@@ -229,7 +231,7 @@ def callback_query(call):
 
         count = 1;
         for item in order_details['order_items']:
-            output += f"{count}. {item['item_name']} ({item['quantity']} шт.)\n"
+            output += f"{count}. {item['item_name']} ({item['quantity']} {item['units']})\n"
             count += 1
 
         markup = types.InlineKeyboardMarkup(row_width=1)
@@ -289,8 +291,8 @@ def handle_full_name(message):
 
             # создаем позиции в заказе
             new_order_id = cursor.lastrowid
-            for i in range(2):
-                cursor.execute('INSERT INTO OrderItems (order_id, item_id, quantity) VALUES (?, ?, ?)', (new_order_id, random.randint(1, 6), random.randint(15, 1000),))
+            for i in range(random.randint(3, 6)):
+                cursor.execute('INSERT INTO OrderItems (order_id, item_id, quantity) VALUES (?, ?, ?)', (new_order_id, random.randint(1, 17), random.randint(15, 1000),))
                 db.commit()
 
         bot.send_message(message.chat.id, f"Спасибо, {full_name}! Мы создали вам демо-заказ.")
