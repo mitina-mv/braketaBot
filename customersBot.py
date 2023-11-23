@@ -212,7 +212,6 @@ def callback_query(call):
         markup = types.InlineKeyboardMarkup(row_width=1)
         markup.add(types.InlineKeyboardButton("❌ Отменить", callback_data=f"cancel_{row[0]}"))
 
-        # TODO добавить кнопки
         bot.send_message(call.message.chat.id, output, parse_mode="Markdown", reply_markup=markup)
 
     elif req[0] == 'cancel':
@@ -221,6 +220,10 @@ def callback_query(call):
             cursor = db.cursor()
             cursor.execute("UPDATE Orders SET status_id = 9 WHERE id = ?", (req[1],))
             db.commit()
+
+        bot.send_message(call.message.chat.id, "Заявка на отмену заказа направлена менеджеру заказа! Ожидайте обратной связи.")
+        send_menu(call.message.chat.id)
+
      
 
 # главный обработчик текстовых сообщений
