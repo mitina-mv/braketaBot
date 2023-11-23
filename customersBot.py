@@ -69,7 +69,14 @@ def send_menu(chat_id):
 def handle_contact(message):
     contact = message.contact
     phone_number = contact.phone_number
-    user['phone_number'] = phone_number
+
+    with sqlite3.connect(db_path) as db:        
+        # записываем нового пользователя
+        cursor = db.cursor()
+        cursor.execute('INSERT INTO Customers (phone, telegram_id) VALUES (?, ?)', (phone_number, message.chat.id,))
+        db.commit()
+
+    status_bot = 'register'
     bot.send_message(message.chat.id, "Введите ваше полное имя: ")
     
 
@@ -154,13 +161,17 @@ def orders_command(message):
 @bot.message_handler(commands=['help'])
 @bot.message_handler(func=lambda message: message.text == '❓ Помощь')
 def help_command(message):
-    bot.send_message(message.chat.id, "Помощь: Как я могу вам помочь?")
+    bot.send_message(message.chat.id, """*Доступные команды*\n
+/start - если что-то идет не так, попробуйте перезапустить бота
+/help - покажет все команды
+/history - история заказов
+/orders - список актуальных заказов. Нажмите на кнопку под сообщением, чтобы увидеть подробности по заказу.
+""", parse_mode="Markdown")
 
 # Обработчик коллбека
 @bot.callback_query_handler(func=lambda call:True)
 def callback_query(call):
     req = call.data.split('_')
-    print(req)
 
     if req[0] == 'order':
         # получаем детальный заказ по его id
@@ -256,16 +267,15 @@ def handle_full_name(message):
     
     if status_bot == 'register':
         full_name = message.text
-        user['full_name'] = full_name
         
         with sqlite3.connect(db_path) as db:
-            # записываем нового пользователя
-            cursor = db.cursor()
-            cursor.execute('INSERT INTO Customers (full_name, phone, telegram_id) VALUES (?, ?, ?)', (user['full_name'], user['phone_number'], message.chat.id,))
-            db.commit()
-            
             # получаем id пользователя
             user_id = get_user_from_db(message.chat.id)[0]
+
+            # записываем нового пользователя
+            cursor = db.cursor()
+            cursor.execute('UPDATE Customers SET full_name = ? WHERE id = ?', (full_name, user_id,))
+            db.commit()
 
             current_date = datetime.now().date()
             planned_delivery_date = current_date + timedelta(days=10)
@@ -310,6 +320,7 @@ def check_database_changes():
             JOIN Statuses ON Orders.status_id = Statuses.id
             JOIN Customers ON Orders.customer_id = Customers.id
             WHERE Orders.timestamp_update > ?
+            AND Orders.status_id != 1
             ORDER BY Orders.order_date DESC
         ''', (last_checked_timestamp,))
 
@@ -347,4 +358,3 @@ while True:
         logging.error(e)
         time.sleep(5)
 
-# bot.polling(none_stop=True)
