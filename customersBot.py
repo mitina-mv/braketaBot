@@ -124,23 +124,86 @@ def orders_command(message):
         FROM Orders
         WHERE Orders.customer_id = ?
         AND Orders.status_id != 7
-        ORDER BY Orders.order_date DESC
-                       
+        ORDER BY Orders.order_date DESC          
         """, (user[0],))
         # Получение всех результатов запроса
         results = cursor.fetchall()
 
     markup = types.InlineKeyboardMarkup(row_width=2)
     for row in results:
-        markup.add(types.InlineKeyboardButton(f"Заказ № {row[0]}", callback_data=f"order_{row[0]}"))
+        markup.add(types.InlineKeyboardButton(f"\nЗаказ № {row[0]}", callback_data=f"order_{row[0]}"))
     
-    bot.send_message(message.chat.id, "Ваши актуальные заказы: \n", reply_markup=markup)
+    bot.send_message(message.chat.id, "Ваши актуальные заказы: ", reply_markup=markup)
 
 # Обработчик для команды /help
 @bot.message_handler(commands=['help'])
 @bot.message_handler(func=lambda message: message.text == '❓ Помощь')
 def help_command(message):
     bot.send_message(message.chat.id, "Помощь: Как я могу вам помочь?")
+
+# Обработчик коллбека
+@bot.callback_query_handler(func=lambda call:True)
+def callback_query(call):
+    req = call.data.split('_')
+    print(req)
+
+    if req[0] == 'order':
+        # получаем детальный заказ по его id
+        with sqlite3.connect(db_path) as db:
+            cursor = db.cursor()
+            cursor.execute("""SELECT 
+                Orders.id AS order_id,
+                Orders.name AS order_name,
+                Orders.order_date,
+                Orders.planned_delivery_date,
+                Statuses.name AS status_name,
+                Managers.full_name AS manager_name,
+                OrderItems.quantity,
+                Items.name AS item_name
+            FROM Orders
+            JOIN Statuses ON Orders.status_id = Statuses.id
+            JOIN Managers ON Orders.manager_id = Managers.id
+            JOIN OrderItems ON Orders.id = OrderItems.order_id
+            JOIN Items ON OrderItems.item_id = Items.id
+            WHERE Orders.id = ?;          
+            """, (req[1],))
+            # Получение всех результатов запроса
+            result = cursor.fetchall()
+
+        if not result:
+            bot.send_message(call.message.chat.id, "Мы не определили Ваш заказ. Свяжитесь с компанией.")
+            return
+        
+        order_details = {
+            'order_id': result[0][0],
+            'order_name': result[0][1],
+            'order_date': result[0][2],
+            'planned_delivery_date': result[0][3],
+            'status_name': result[0][4],
+            'manager_name': result[0][5],
+            'order_items': []
+        }
+
+        for row in result:
+            order_items_details = {'item_name': row[7], 'quantity': row[6]}
+            order_details['order_items'].append(order_items_details)
+
+        output = (
+            f"*Заказ № {order_details['order_id']} \"{order_details['order_name']}\" *\n\n"
+            f"Статус: {order_details['status_name']}\n"
+            f"Дата заказа: {order_details['order_date']}\n"
+            f"Плановая дата доставки: {order_details['planned_delivery_date']}\n"
+            f"Менеджер: {order_details['manager_name']}\n\n"
+            "*Состав заказа:*\n"
+        )
+
+        count = 1;
+        for item in order_details['order_items']:
+            output += f"{count}. {item['item_name']} ({item['quantity']} шт.)\n"
+            ++count
+
+        # TODO добавить кнопки
+        bot.send_message(call.message.chat.id, output, parse_mode="Markdown")
 
 # главный обработчик текстовых сообщений
 @bot.message_handler(func=lambda message: True)
