@@ -1,3 +1,4 @@
+import time
 import telebot
 from telebot import types
 import os
@@ -253,6 +254,13 @@ def handle_order_delivery(call):
     with sqlite3.connect(db_path) as db:
         cursor = db.cursor()
         cursor.execute('''
+                       UPDATE Orders
+                       SET status_id = 10,
+                           timestamp_update = ?
+                       WHERE id = ?
+                       ''', (time.time(), order_id))
+        db.commit()
+        cursor.execute('''
                     SELECT 
                         Orders.id AS order_id,
                         Orders.name,
@@ -264,7 +272,6 @@ def handle_order_delivery(call):
                     WHERE Orders.id = ?;
                 ''', (order_id,))
         result = cursor.fetchone()
-        bot.send_message(result[4], f'Уважаемый(ая) {result[2]}, ваша доставка {result[1]} задерживается, приносим свои извинения')
         bot.send_message(call.message.chat.id, f'Уведомление {result[2]} отправлено. Номер для связи с клиентом: {result[3]}')
     send_welcome_message(call.message, user['department'])
 
