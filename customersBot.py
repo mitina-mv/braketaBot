@@ -5,6 +5,9 @@ import os
 import sqlite3
 from datetime import datetime, timedelta
 import random
+import schedule
+import threading
+import time
 
 token = os.environ.get("TOKEN_CUSTOMERS")
 db_path = 'braketaDB.db'
@@ -15,8 +18,12 @@ user = {}
 
 status_bot = ''
 
+last_checked_timestamp = time.time() - 120
+
 def get_user_from_db(telegram_id):
     global user
+
+    print(last_checked_timestamp)
 
     with sqlite3.connect(db_path) as db:
         cursor = db.cursor()
@@ -218,7 +225,7 @@ def callback_query(call):
         # обновляем статус заказа по его id
         with sqlite3.connect(db_path) as db:
             cursor = db.cursor()
-            cursor.execute("UPDATE Orders SET status_id = 9 WHERE id = ?", (req[1],))
+            cursor.execute("UPDATE Orders SET status_id = 9, timestamp_update = ? WHERE id = ?", (time.time() + 30, req[1],))
             db.commit()
 
         bot.send_message(call.message.chat.id, "Заявка на отмену заказа направлена менеджеру заказа! Ожидайте обратной связи.")
@@ -275,5 +282,58 @@ def handle_full_name(message):
             user = user_data
         bot.send_message(message.chat.id, f"мы вас не поняли")
 
+# Функция для проверки изменений в базе данных и отправки сообщений
+def check_database_changes():
+    global bot
+    global last_checked_timestamp
 
-bot.polling(none_stop=True)
+    with sqlite3.connect('braketaDB.db') as connection:
+        cursor = connection.cursor()
+        cursor.execute('''
+            SELECT
+                Orders.id AS order_id,
+                Orders.name AS order_name,
+                Statuses.name AS status_name,
+                Customers.telegram_id as telega
+            FROM Orders
+            JOIN Statuses ON Orders.status_id = Statuses.id
+            JOIN Customers ON Orders.customer_id = Customers.id
+            WHERE Orders.timestamp_update > ?
+            ORDER BY Orders.order_date DESC
+        ''', (last_checked_timestamp,))
+
+        results = cursor.fetchall()
+
+        for row in results:
+            order_id = row[0]
+            order_name = row[1]
+            status_name = row[2]
+            telega = row[3]
+
+            # Если есть изменения, отправьте сообщения пользователям
+            bot.send_message(telega, f"Заказ №{order_id} \"{order_name}\". Статус обновлен: {status_name}")
+
+        last_checked_timestamp = time.time()
+
+
+
+# Функция для выполнения фоновой задачи
+def run_schedule():
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+# Запланируйте выполнение функции каждый час (настройте по необходимости)
+schedule.every(1).minutes.do(check_database_changes)
+
+# Создать и запустить фоновую задачу в отдельном потоке
+background_thread = threading.Thread(target=run_schedule)
+background_thread.start()
+
+while True:
+    try:
+        bot.polling(none_stop=True)
+        time.sleep(1)
+    except Exception as e:
+        logging.error(e)
+        time.sleep(5)
