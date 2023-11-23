@@ -106,6 +106,10 @@ def history_command(message):
         # Получение всех результатов запроса
         results = cursor.fetchall()
 
+        if results == []:
+            bot.send_message(message.chat.id, "Вы еще не совершали заказов, история пуста.")
+            return
+
         # Вывод результатов
         orders_str = ''
         count = 1
@@ -343,7 +347,7 @@ def run_schedule():
         schedule.run_pending()
         time.sleep(1)
 
-# Запланируйте выполнение функции каждый час (настройте по необходимости)
+# планировщик просмотра бд
 schedule.every(1).minutes.do(check_database_changes)
 
 # Создать и запустить фоновую задачу в отдельном потоке
