@@ -23,13 +23,10 @@ last_checked_timestamp = time.time() - 120
 def get_user_from_db(telegram_id):
     global user
 
-    print(last_checked_timestamp)
-
     with sqlite3.connect(db_path) as db:
         cursor = db.cursor()
         cursor.execute('SELECT * FROM Customers WHERE telegram_id = ?', (telegram_id,))
         user_data = cursor.fetchone()
-        user['telegram_id'] = telegram_id
     
     return user_data
 
@@ -80,9 +77,10 @@ def handle_contact(message):
 @bot.message_handler(commands=['history'])
 @bot.message_handler(func=lambda message: message.text == '📚 История заказов')
 def history_command(message):
-    global user
+    with sqlite3.connect(db_path) as db:        
+        # получаем id пользователя
+        user_id = get_user_from_db(message.chat.id)[0]
 
-    with sqlite3.connect(db_path) as db:
         cursor = db.cursor()
         cursor.execute("""SELECT  
             Orders.id AS order_id,
@@ -97,7 +95,7 @@ def history_command(message):
         WHERE Orders.customer_id = ?
         ORDER BY Orders.order_date DESC
                        
-        """, (user[0],))
+        """, (user_id,))
         # Получение всех результатов запроса
         results = cursor.fetchall()
 
@@ -125,6 +123,9 @@ def orders_command(message):
 
     with sqlite3.connect(db_path) as db:
         cursor = db.cursor()
+        # получаем id пользователя
+        user_id = get_user_from_db(message.chat.id)[0]
+
         cursor.execute("""SELECT  
             Orders.id AS order_id,
             Orders.name AS order_name
@@ -134,7 +135,7 @@ def orders_command(message):
         AND Orders.status_id != 8
         AND Orders.status_id != 9
         ORDER BY Orders.order_date DESC          
-        """, (user[0],))
+        """, (user_id,))
         # Получение всех результатов запроса
         results = cursor.fetchall()
 
@@ -225,6 +226,20 @@ def callback_query(call):
         # обновляем статус заказа по его id
         with sqlite3.connect(db_path) as db:
             cursor = db.cursor()
+            # получаем текущий id статуса
+            cursor.execute("""SELECT  
+                Orders.status_id
+            FROM Orders
+            WHERE Orders.id = ?                        
+            """, (req[1],))
+
+            order_status = cursor.fetchone()
+
+            if order_status and (order_status[0] == 7 or order_status[0] == 8 or order_status[0] == 9):
+                bot.send_message(call.message.chat.id, "Изменение статуса недопустимо!")
+                return
+
+            # обновляем статус
             cursor.execute("UPDATE Orders SET status_id = 9, timestamp_update = ? WHERE id = ?", (time.time() + 30, req[1],))
             db.commit()
 
@@ -246,20 +261,16 @@ def handle_full_name(message):
         with sqlite3.connect(db_path) as db:
             # записываем нового пользователя
             cursor = db.cursor()
-            cursor.execute('INSERT INTO Customers (full_name, phone, telegram_id) VALUES (?, ?, ?)', (user['full_name'], user['phone_number'], user['telegram_id'],))
+            cursor.execute('INSERT INTO Customers (full_name, phone, telegram_id) VALUES (?, ?, ?)', (user['full_name'], user['phone_number'], message.chat.id,))
             db.commit()
+            
+            # получаем id пользователя
+            user_id = get_user_from_db(message.chat.id)[0]
 
-            # получаем данные нового пользователя 
-            cursor = db.cursor()
-            cursor.execute('SELECT * FROM Customers WHERE telegram_id = ?', (user['telegram_id'],))
-            user = cursor.fetchone()
-            print(user)
-
-            # создаем демо заказ
             current_date = datetime.now().date()
             planned_delivery_date = current_date + timedelta(days=10)
 
-            cursor.execute('INSERT INTO Orders (name, status_id, order_date, planned_delivery_date, manager_id, customer_id) VALUES (?, ?, ?, ?, ?, ?)', ('Тестовый заказ', 1, current_date, planned_delivery_date, 1, user[0],))
+            cursor.execute('INSERT INTO Orders (name, status_id, order_date, planned_delivery_date, manager_id, customer_id) VALUES (?, ?, ?, ?, ?, ?)', ('Тестовый заказ', 1, current_date, planned_delivery_date, 1, user_id,))
             db.commit()
 
             # создаем позиции в заказе
@@ -315,8 +326,6 @@ def check_database_changes():
 
         last_checked_timestamp = time.time()
 
-
-
 # Функция для выполнения фоновой задачи
 def run_schedule():
     while True:
@@ -337,3 +346,5 @@ while True:
     except Exception as e:
         logging.error(e)
         time.sleep(5)
+
+# bot.polling(none_stop=True)
