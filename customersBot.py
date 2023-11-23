@@ -98,15 +98,15 @@ def history_command(message):
         orders_str = ''
         count = 1
         for row in results:
-            orders_str += f"""{count}. *Заказ № {row[0]} \"{row[1]}\" *\n 
+            orders_str += f"""\n\n{count}. *Заказ № {row[0]} \"{row[1]}\" *\n 
     Статус: {row[4]}
     Дата заказа: {row[2]}
     Дата доставки: {row[3]} 
     Менеджер: {row[5]}"""
 
-            ++count
+            count += 1
         
-    bot.send_message(message.chat.id, f"История Ваших заказов:\n\n{orders_str}", parse_mode="Markdown")
+    bot.send_message(message.chat.id, f"История Ваших заказов:{orders_str}", parse_mode="Markdown")
     send_menu(message.chat.id)
     
 
@@ -124,16 +124,23 @@ def orders_command(message):
         FROM Orders
         WHERE Orders.customer_id = ?
         AND Orders.status_id != 7
+        AND Orders.status_id != 8
+        AND Orders.status_id != 9
         ORDER BY Orders.order_date DESC          
         """, (user[0],))
         # Получение всех результатов запроса
         results = cursor.fetchall()
 
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    for row in results:
-        markup.add(types.InlineKeyboardButton(f"\nЗаказ № {row[0]}", callback_data=f"order_{row[0]}"))
-    
-    bot.send_message(message.chat.id, "Ваши актуальные заказы: ", reply_markup=markup)
+    if results:
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        for row in results:
+            markup.add(types.InlineKeyboardButton(f"Заказ № {row[0]}", callback_data=f"order_{row[0]}"))
+        
+        bot.send_message(message.chat.id, "Ваши актуальные заказы: \n", reply_markup=markup)
+    else:
+        bot.send_message(message.chat.id, "Мы не нашли у Вас актуальных заказов.")
+        send_menu(message.chat.id)
+
 
 # Обработчик для команды /help
 @bot.message_handler(commands=['help'])
@@ -200,10 +207,21 @@ def callback_query(call):
         count = 1;
         for item in order_details['order_items']:
             output += f"{count}. {item['item_name']} ({item['quantity']} шт.)\n"
-            ++count
+            count += 1
+
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        markup.add(types.InlineKeyboardButton("❌ Отменить", callback_data=f"cancel_{row[0]}"))
 
         # TODO добавить кнопки
-        bot.send_message(call.message.chat.id, output, parse_mode="Markdown")
+        bot.send_message(call.message.chat.id, output, parse_mode="Markdown", reply_markup=markup)
+
+    elif req[0] == 'cancel':
+        # обновляем статус заказа по его id
+        with sqlite3.connect(db_path) as db:
+            cursor = db.cursor()
+            cursor.execute("UPDATE Orders SET status_id = 9 WHERE id = ?", (req[1],))
+            db.commit()
+     
 
 # главный обработчик текстовых сообщений
 @bot.message_handler(func=lambda message: True)
@@ -238,7 +256,7 @@ def handle_full_name(message):
             new_order_id = cursor.lastrowid
             for i in range(2):
                 cursor.execute('INSERT INTO OrderItems (order_id, item_id, quantity) VALUES (?, ?, ?)', (new_order_id, random.randint(1, 6), random.randint(15, 1000),))
-                # db.commit()
+                db.commit()
 
         bot.send_message(message.chat.id, f"Спасибо, {full_name}! Мы создали вам демо-заказ.")
         status_bot = 'start'
