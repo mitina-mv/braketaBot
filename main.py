@@ -68,36 +68,3 @@ def button_message(message):
     bot.send_message(message.chat.id, 'Выберите что вам надо', reply_markup=markup)
 
 bot.polling(none_stop=True)
-
-
-
-
-# ____
-# import telebot
-# from telebot import types
-# import os
-
-# token = os.environ.get("TOKEN")
-
-# bot = telebot.TeleBot(token)
-
-# @bot.message_handler(func=lambda message: True)
-# def handle_all_messages(message):
-#     # Ваш код, который будет выполняться при каждом получении сообщения
-#     markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-#     button = types.KeyboardButton("Поделиться контактом", request_contact=True)
-#     markup.add(button)
-
-#     bot.send_message(message.chat.id, "Поделитесь своим контактом, нажав кнопку ниже.", reply_markup=markup)
-
-# @bot.message_handler(content_types=['contact'])
-# def handle_contact(message):
-#     # Обработка полученного контакта
-#     contact = message.contact
-#     phone_number = contact.phone_number
-#     user_id = message.from_user.id
-
-#     bot.send_message(message.chat.id, f"Спасибо за предоставленный контакт: {phone_number}")
-
-# # Запуск бота
-# bot.polling(none_stop=True)
