@@ -15,17 +15,21 @@ bot = telebot.TeleBot(token)
 generate_qr = telebot.types.KeyboardButton(text="Сгенерировать qr код")
 read_qr = telebot.types.KeyboardButton(text="Считать qr код")
 delivery = telebot.types.KeyboardButton(text="Оповещение о задержке")
+change_role = telebot.types.KeyboardButton(text="Смена отдела (ТЕСТОВАЯ ФУНКЦИЯ)")
 
 user = {}
 
 logist_keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
 logist_keyboard.add(generate_qr)
+logist_keyboard.add(change_role)
 
 warehouse_keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
 warehouse_keyboard.add(read_qr)
+warehouse_keyboard.add(change_role)
 
 delivery_keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
 delivery_keyboard.add(delivery)
+delivery_keyboard.add(change_role)
 
 none_keyboard = telebot.types.ReplyKeyboardRemove()
 
@@ -61,8 +65,7 @@ def init_handler(message):
                 button = types.InlineKeyboardButton(text=department_name, callback_data=f'department_{department_id}')
                 inline_keyboard.add(button)
             bot.send_message(message.chat.id, 'Выберите ваш отдел', reply_markup=inline_keyboard)
-             
-# @bot.callback_query_handler(func=lambda call: True)
+
 def handle_department_selection(call):
     department_id = int(call.data.split('_')[1])
     bot.send_message(call.message.chat.id, 'Введите ваше полное имя')
@@ -75,10 +78,8 @@ def handle_department_selection(call):
             cursor = db.cursor()
             cursor.execute('INSERT INTO Workers (full_name, department_id, telegram_id) VALUES (?, ?, ?)', (message.text, department_id, telegram_id,))
             db.commit()
+            bot.send_message(message.chat.id, f"Вы успешно зарегистрированы в системе!")
             send_welcome_message(message, user['department'])
-        bot.send_message(message.chat.id, f"Вы успешно зарегистрированы в системе!")
-    
-
 
 def send_welcome_message(message, department):
     if department == 1:
@@ -96,7 +97,9 @@ def handle_callbacks(call):
         handle_order_delivery(call)
     elif call.data.startswith('order'):
         handle_order_selection(call)
-    
+    elif call.data.startswith('newdep'):
+        handle_newdep_delivery(call)
+
 @bot.message_handler(func=lambda message: message.text == 'Сгенерировать qr код')
 def generate_qr_code(message):
     
@@ -121,8 +124,29 @@ def generate_qr_code(message):
                         button = types.InlineKeyboardButton(text=order_name, callback_data=f'order_{order_id}')
                         inline_keyboard.add(button)
                     bot.send_message(message.chat.id, 'Выберите заказ', reply_markup=inline_keyboard)
+
+@bot.message_handler(func=lambda message: message.text == 'Смена отдела (ТЕСТОВАЯ ФУНКЦИЯ)')
+def change_department(message):
     
-# @bot.callback_query_handler(func=lambda call: True)
+    with sqlite3.connect(db_path) as db:
+            cursor = db.cursor()
+            cursor.execute('''
+                SELECT 
+                    Departments.id,
+                    Departments.name
+                FROM Departments
+            ''')
+
+            result = cursor.fetchall()
+            
+            inline_keyboard = types.InlineKeyboardMarkup()
+            for row in result:
+                department_id = row[0]
+                department_name = row[1]
+                button = types.InlineKeyboardButton(text=department_name, callback_data=f'newdep_{department_id}')
+                inline_keyboard.add(button)
+            bot.send_message(message.chat.id, 'Выберите новый отдел', reply_markup=inline_keyboard)
+
 def handle_order_selection(call):
     order_id = int(call.data.split('_')[1])
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
@@ -134,12 +158,12 @@ def handle_order_selection(call):
         bot.send_photo(call.message.chat.id, photo)
     os.remove("QR.png")
     send_welcome_message(call.message, user['department'])
-    
+
 @bot.message_handler(func=lambda message: message.text == 'Считать qr код')
 def read_qr_code(message):
     bot.send_message(message.chat.id, 'Отправьте фото qr кода', reply_markup=none_keyboard)
     bot.register_next_step_handler(message, handle_qr)
-    
+
 @bot.message_handler(content_types=['photo'])
 def handle_qr(message):
     photo = message.photo[-1]
@@ -157,6 +181,7 @@ def handle_qr(message):
     else:
         qcd = cv2.QRCodeDetector()
         decode_data, bbox, straight_qrcode = qcd.detectAndDecode(qrImg)
+        print(decode_data)
         if bbox is not None:
             with sqlite3.connect(db_path) as db:
                 cursor = db.cursor()
@@ -178,10 +203,11 @@ def handle_qr(message):
                             JOIN Customers ON Orders.customer_id = Customers.id
                             JOIN OrderItems ON Orders.id = OrderItems.order_id
                             JOIN Items ON OrderItems.item_id = Items.id
-                            WHERE Orders.id = ?;
+                            WHERE order_id = ?
                             ''', (decode_data,))
 
                 result = cursor.fetchall()
+                print(result)
                 if not result:
                     bot.send_message(message.chat.id, "Вы отправили некорректный qr код")
                     send_welcome_message(message, user['department'])
@@ -222,7 +248,7 @@ def handle_qr(message):
             bot.send_message(message.chat.id, "QR код не распознан")
             send_welcome_message(message, user['department'])
     os.remove("qr_code.png")
-    
+
 @bot.message_handler(func=lambda message: message.text == "Оповещение о задержке")
 def delivery_delay(message):
     
@@ -247,8 +273,7 @@ def delivery_delay(message):
                         button = types.InlineKeyboardButton(text=order_name, callback_data=f'delivery_{order_id}')
                         inline_keyboard.add(button)
                     bot.send_message(message.chat.id, 'Выберите заказ', reply_markup=inline_keyboard)
-    
-# @bot.callback_query_handler(func=lambda call: True)
+
 def handle_order_delivery(call):
     order_id = int(call.data.split('_')[1])
     with sqlite3.connect(db_path) as db:
@@ -274,5 +299,15 @@ def handle_order_delivery(call):
         result = cursor.fetchone()
         bot.send_message(call.message.chat.id, f'Уведомление {result[2]} отправлено. Номер для связи с клиентом: {result[3]}')
     send_welcome_message(call.message, user['department'])
+
+def handle_newdep_delivery(call):
+    department_id = int(call.data.split('_')[1])
+    user['department'] = department_id
+    with sqlite3.connect(db_path) as db:
+        cursor = db.cursor()
+        cursor.execute('UPDATE Workers SET department_id = ? WHERE telegram_id = ?', (department_id, call.message.chat.id,))
+        db.commit()
+        bot.send_message(call.message.chat.id, f"Вы успешно изменили роль!")
+        send_welcome_message(call.message, user['department'])
 
 bot.polling(none_stop=True)
