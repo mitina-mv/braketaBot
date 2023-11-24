@@ -44,7 +44,7 @@ def get_department_by_telegram_id(telegram_id):
 
 @bot.message_handler(commands=['start'])
 def init_handler(message):
-    telegram_id = message.from_user.id
+    telegram_id = message.chat.id
     with sqlite3.connect(db_path) as db:
         cursor = db.cursor()
         cursor.execute('SELECT * FROM Workers WHERE telegram_id = ?', (telegram_id,))
