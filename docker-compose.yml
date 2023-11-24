@@ -1,0 +1,21 @@
+version: "3"
+services:
+    worker_bot:
+        image: python:3.12
+        volumes:
+            - .:/app
+            - .braketaDB.db:/app/braketaDB.db
+        ports:
+            - "8020:8001"
+        working_dir: /app
+        command: bash -c "apt-get update && apt-get install -y libgl1-mesa-glx && pip install pipenv && pipenv install && pipenv run python qr.py"
+
+    customer_bot:
+        image: python:3.12
+        volumes:
+            - .:/app
+            - .braketaDB.db:/app/braketaDB.db
+        ports:
+            - "8021:8002"
+        working_dir: /app
+        command: bash -c "pip install pipenv && pipenv install && pipenv run python customersBot.py"
