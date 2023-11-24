@@ -271,6 +271,7 @@ def delivery_delay(message):
                         Orders.id AS order_id,
                         Orders.name AS order_name
                     FROM Orders
+                    WHERE Orders.status_id >= 7
                 ''')
 
                 result = cursor.fetchall()
