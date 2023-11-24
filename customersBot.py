@@ -216,7 +216,6 @@ def callback_query(call):
         }
 
         for row in result:
-            print(row)
             order_items_details = {'item_name': row[8], 'quantity': row[6], 'units': row[7]}
             order_details['order_items'].append(order_items_details)
 
