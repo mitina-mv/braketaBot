@@ -33,7 +33,8 @@ cursor.execute('''
 -- Create table "Items"
 CREATE TABLE IF NOT EXISTS Items (
     id INTEGER PRIMARY KEY,
-    name TEXT
+    name TEXT,
+    units TEXT
 );
 ''')
 

@@ -51,7 +51,7 @@ def init_handler(message):
         user_data = cursor.fetchone()
 
     if user_data:
-        bot.send_message(message.chat.id, f"Привет {user_data[1]} ✌️  \nДобро пожаловать в систему!")
+        bot.send_message(message.chat.id, f"Здравствуйте, {user_data[1]}!  \nДобро пожаловать в бота для сотрудников НЛМК.")
         send_welcome_message(message, user_data[3])
     else:
     
@@ -77,7 +77,7 @@ def init_handler(message):
 def handle_department_selection(call):
     department_id = int(call.data.split('_')[1])
     bot.send_message(call.message.chat.id, 'Введите ваше полное имя')
-    telegram_id = call.message.from_user.id
+    telegram_id = call.message.chat.id
     
     @bot.message_handler(content_types=['text'])
     def handle_full_name(message):
@@ -85,16 +85,16 @@ def handle_department_selection(call):
             cursor = db.cursor()
             cursor.execute('INSERT INTO Workers (full_name, department_id, telegram_id) VALUES (?, ?, ?)', (message.text, department_id, telegram_id,))
             db.commit()
-            bot.send_message(message.chat.id, f"Вы успешно зарегистрированы в системе!")
+            bot.send_message(message.chat.id, f"Вы успешно зарегистрированы в системе! \nДобро пожаловать в бота для сотрудников НЛМК.")
             send_welcome_message(message, department_id)
 
 def send_welcome_message(message, department):
     if department == 1:
-        bot.send_message(message.chat.id, 'Добро пожаловать в бота для сотрудников НЛМК', reply_markup=logist_keyboard)
+        bot.send_message(message.chat.id, 'Главное меню:', reply_markup=logist_keyboard)
     elif department == 2:
-        bot.send_message(message.chat.id, 'Добро пожаловать в бота для сотрудников НЛМК', reply_markup=warehouse_keyboard)
+        bot.send_message(message.chat.id, 'Главное меню:', reply_markup=warehouse_keyboard)
     elif department == 3:
-        bot.send_message(message.chat.id, 'Добро пожаловать в бота для сотрудников НЛМК', reply_markup=delivery_keyboard)
+        bot.send_message(message.chat.id, 'Главное меню:', reply_markup=delivery_keyboard)
         
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callbacks(call):
@@ -129,7 +129,7 @@ def generate_qr_code(message):
             for row in result:
                 order_id = row[0]
                 order_name = row[1]
-                button = types.InlineKeyboardButton(text=order_name, callback_data=f'order_{order_id}')
+                button = types.InlineKeyboardButton(text=f"Заказ №{order_id}", callback_data=f'order_{order_id}')
                 inline_keyboard.add(button)
             bot.send_message(message.chat.id, 'Выберите заказ', reply_markup=inline_keyboard)
 
@@ -192,7 +192,7 @@ def handle_qr(message):
     else:
         qcd = cv2.QRCodeDetector()
         decode_data, bbox, straight_qrcode = qcd.detectAndDecode(qrImg)
-        print(decode_data)
+
         if bbox is not None:
             with sqlite3.connect(db_path) as db:
                 cursor = db.cursor()
@@ -218,7 +218,7 @@ def handle_qr(message):
                             ''', (decode_data,))
 
                 result = cursor.fetchall()
-                print(result)
+                
                 if not result:
                     bot.send_message(message.chat.id, "Вы отправили некорректный qr код")
                     send_welcome_message(message, department_id)

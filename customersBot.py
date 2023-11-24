@@ -286,7 +286,7 @@ def handle_full_name(message):
             current_date = datetime.now().date()
             planned_delivery_date = current_date + timedelta(days=10)
 
-            cursor.execute('INSERT INTO Orders (name, status_id, order_date, planned_delivery_date, manager_id, customer_id) VALUES (?, ?, ?, ?, ?, ?)', ('Тестовый заказ', 1, current_date, planned_delivery_date, 1, user_id,))
+            cursor.execute('INSERT INTO Orders (name, status_id, order_date, planned_delivery_date, manager_id, customer_id, timestamp_update) VALUES (?, ?, ?, ?, ?, ?)', ('Тестовый заказ', 1, current_date, planned_delivery_date, 1, user_id, time.time()))
             db.commit()
 
             # создаем позиции в заказе
