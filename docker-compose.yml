@@ -2,6 +2,7 @@ version: "3"
 services:
     worker_bot:
         image: python:3.12
+        restart: always
         volumes:
             - .:/app
             - ./braketaDB.db:/app/braketaDB.db
@@ -12,6 +13,7 @@ services:
 
     customer_bot:
         image: python:3.12
+        restart: always
         volumes:
             - .:/app
             - ./braketaDB.db:/app/braketaDB.db

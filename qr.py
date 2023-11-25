@@ -1,3 +1,4 @@
+import logging
 import time
 import telebot
 from telebot import types
@@ -325,4 +326,8 @@ def handle_newdep_delivery(call):
         bot.send_message(call.message.chat.id, f"Вы успешно изменили роль!")
         send_welcome_message(call.message, department_id)
 
-bot.polling(none_stop=True)
+while True:
+    try:
+        bot.polling(none_stop=True)
+    except Exception as e:
+        logging.error(e)
