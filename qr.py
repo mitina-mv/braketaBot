@@ -166,6 +166,15 @@ def handle_order_selection(call):
     with open("QR.png", 'rb') as photo:
         bot.send_photo(call.message.chat.id, photo)
     os.remove("QR.png")
+    with sqlite3.connect(db_path) as db:
+        cursor = db.cursor()
+        cursor.execute('''
+            UPDATE Orders
+            SET status_id = 4,
+                timestamp_update = ?
+            WHERE id = ?
+        ''', (time.time(), order_id))
+        db.commit()
     department_id = get_department_by_telegram_id(call.message.chat.id)
 
     send_welcome_message(call.message, department_id)
@@ -254,6 +263,15 @@ def handle_qr(message):
                     for item in order_details['order_items']:
                         output += f"- {item['item_name']}: {item['quantity']}\n"
                     bot.send_message(message.chat.id, output)
+                    with sqlite3.connect(db_path) as db:
+                        cursor = db.cursor()
+                        cursor.execute('''
+                                UPDATE Orders
+                                SET status_id = 6,
+                                    timestamp_update = ?
+                                WHERE id = ?
+                        ''', (time.time(), result[0][0]))
+                        db.commit()
                     send_welcome_message(message, department_id)
 
         else:
