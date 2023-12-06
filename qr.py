@@ -302,7 +302,7 @@ def delivery_delay(message):
                     for row in result:
                         order_id = row[0]
                         order_name = row[1]
-                        button = types.InlineKeyboardButton(text=order_name, callback_data=f'delivery_{order_id}')
+                        button = types.InlineKeyboardButton(text=f"Заказ №{order_id}", callback_data=f'delivery_{order_id}')
                         inline_keyboard.add(button)
                     bot.send_message(message.chat.id, 'Выберите заказ', reply_markup=inline_keyboard)
 
